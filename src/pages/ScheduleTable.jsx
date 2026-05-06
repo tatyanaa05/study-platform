@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
+import { api } from "../lib/api.js";
 
 // Модель занятия
 // {
@@ -11,9 +13,9 @@ import { useEffect, useMemo, useState } from "react";
 //   color?: string (e.g. #4F8CFF)
 // }
 
-const HOURS_START = 8; // 08:00
-const HOURS_END = 20; // 20:00
-const MINUTES_TOTAL = (HOURS_END - HOURS_START) * 60; // 12h -> 720
+const HOURS_START = 0;
+const HOURS_END = 24;
+const MINUTES_TOTAL = (HOURS_END - HOURS_START) * 60; // 24h -> 1440
 const PX_PER_MINUTE = 1; // высота контейнера = 720px
 
 const ruDaysShort = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -151,23 +153,10 @@ function layoutDay(lessons) {
     }
   }
 
-  // Вернём в исходном порядке с добавленными полями
   const res = Array(events.length);
   for (const ev of events) res[ev._idx] = ev;
   return res;
 }
-
-const defaultSeed = [
-  {
-    id: cryptoRandomId(),
-    subject: "Математика",
-    title: "Линейные уравнения",
-    description: "Повторение основных понятий",
-    start_time: `${formatISO(new Date())}T10:00`,
-    end_time: `${formatISO(new Date())}T11:30`,
-    color: "#4F8CFF",
-  },
-];
 
 function cryptoRandomId() {
   try {
@@ -178,27 +167,41 @@ function cryptoRandomId() {
 }
 
 export default function ScheduleTable() {
-  const [view, setView] = useState("week"); // 'day' | 'week'
+  const [view, setView] = useState(() => {
+    try {
+      return window.matchMedia && window.matchMedia('(min-width: 768px)').matches ? 'week' : 'day';
+    } catch (_) {
+      return 'week';
+    }
+  }); // 'day' | 'week'
   const [currentDate, setCurrentDate] = useState(() => startOfDay(new Date()));
-  const [lessons, setLessons] = useState(() => {
-    const raw = localStorage.getItem("lessons");
-    if (raw) return JSON.parse(raw);
-    localStorage.setItem("lessons", JSON.stringify(defaultSeed));
-    return defaultSeed;
-  });
+  // Храним только серверные данные. Без дефолтного сида — чтобы не путать пользователя.
+  const [lessons, setLessons] = useState([]);
+  const { accessToken } = useAuth?.() || {};
   const [editing, setEditing] = useState(null); // lesson | null
   const [showForm, setShowForm] = useState(false);
   const [warning, setWarning] = useState("");
 
   useEffect(() => {
-    localStorage.setItem("lessons", JSON.stringify(lessons));
-    // Оповестим остальные части приложения, что расписание изменилось
+    // Оповещаем других слушателей (если есть) о изменении расписания
     try {
       window.dispatchEvent(new CustomEvent("lessonsUpdated"));
     } catch (_) {
       // no-op for environments without CustomEvent
     }
   }, [lessons]);
+
+  // Загрузка занятий из API при наличии токена
+  useEffect(() => {
+    if (!accessToken) return;
+    api
+      .listLessons()
+      .then((items) => setLessons(items.map(mapApiLessonToUi)))
+      .catch(() => {
+        setWarning("Не удалось загрузить расписание с сервера. Попробуйте обновить страницу.");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
 
   const range = useMemo(() => {
     if (view === "day") {
@@ -223,10 +226,21 @@ export default function ScheduleTable() {
   }
 
   function openCreateAt(dayDate, hour = 10) {
+    if (!accessToken) {
+      setWarning("Чтобы добавлять занятия, войдите в систему.");
+      return;
+    }
     const dateStr = formatISO(dayDate);
     const start = `${dateStr}T${String(hour).padStart(2, "0")}:00`;
-    const endHour = Math.min(hour + 1, 19);
-    const end = `${dateStr}T${String(endHour).padStart(2, "0")}:00`;
+    // Завершаем занятие через час, но не за пределами суток
+    let end;
+    if (hour >= HOURS_END - 1) {
+      // если начало в 23:00 — окончание 23:59
+      end = `${dateStr}T${String(HOURS_END - 1).padStart(2, "0")}:59`;
+    } else {
+      const endHour = hour + 1;
+      end = `${dateStr}T${String(endHour).padStart(2, "0")}:00`;
+    }
     setEditing({
       id: null,
       subject: "",
@@ -240,15 +254,39 @@ export default function ScheduleTable() {
   }
 
   function openEdit(lesson) {
+    if (!accessToken) {
+      setWarning("Редактирование доступно только после входа.");
+      return;
+    }
     setEditing({ ...lesson });
     setShowForm(true);
   }
 
   function removeLesson(id) {
+    if (!accessToken) {
+      setWarning("Удаление доступно только для авторизованных пользователей.");
+      return;
+    }
+    // Сначала оптимистично уберём из UI
+    const removed = lessons.find((l) => l.id === id);
     setLessons((ls) => ls.filter((l) => l.id !== id));
+    // Если элемент существует на сервере — удалим там и потом перечитаем список
+    if (removed?.persisted) {
+      api
+        .deleteLesson(id)
+        .then(() => api.listLessons())
+        .then((items) => setLessons(items.map(mapApiLessonToUi)))
+        .catch(() => {
+          setWarning("Не удалось удалить занятие на сервере. Обновите страницу.");
+        });
+    }
   }
 
   function saveLesson(data) {
+    if (!accessToken) {
+      setWarning("Сохранение доступно только после входа в систему.");
+      return false;
+    }
     // Валидация
     const s = new Date(data.start_time);
     const e = new Date(data.end_time);
@@ -269,20 +307,57 @@ export default function ScheduleTable() {
       setWarning("Предупреждение: занятие пересекается с другим. Будет отображено рядом.");
     }
 
+    const titleTrimmed = (data.title || "").trim();
+    const descTrimmed = (data.description || "").trim();
+    const payload = {
+      subject: (data.subject || "Предмет").trim(),
+      title: titleTrimmed ? titleTrimmed : undefined, // не отправляем пустую строку — поле опционально
+      description: descTrimmed ? descTrimmed : undefined,
+      color: data.color || "#4F8CFF",
+      start_time: data.start_time,
+      end_time: data.end_time,
+    };
+
+    // Локальное обновление для мгновенного UX (только для авторизованных)
     if (!data.id) {
       data.id = cryptoRandomId();
-      setLessons((ls) => [...ls, data]);
+      data.persisted = false;
+      setLessons((ls) => [...ls, { ...data }]);
     } else {
-      setLessons((ls) => ls.map((l) => (l.id === data.id ? data : l)));
+      setLessons((ls) => ls.map((l) => (l.id === data.id ? { ...data } : l)));
     }
     setShowForm(false);
+
+    // Серверная запись
+    const isPersisted = Boolean(data?.persisted && data?.id);
+    const op = isPersisted
+      ? api.updateLesson(data.id, payload)
+      : api.createLesson(payload);
+
+    op
+      .then(() => api.listLessons())
+      .then((items) => setLessons(items.map(mapApiLessonToUi)))
+      .catch((err) => {
+        const msg = err?.payload?.error?.message || err?.message || "Не удалось сохранить занятие на сервере.";
+        setWarning(String(msg));
+        console.error("LESSON_SAVE_ERROR", { payload, err });
+      });
     return true;
   }
 
-  function exportJSON() {
-    // Функция экспорта удалена по требованию — кнопка экспорта более не отображается
-    // (сохранено как заглушка на случай будущего восстановления)
+  function mapApiLessonToUi(l) {
+    return {
+      id: l.id,
+      subject: l.subject,
+      title: l.title,
+      description: l.description,
+      start_time: typeof l.start_time === 'string' ? l.start_time : new Date(l.start_time).toISOString(),
+      end_time: typeof l.end_time === 'string' ? l.end_time : new Date(l.end_time).toISOString(),
+      color: l.color,
+      persisted: true,
+    };
   }
+
 
   const daysToRender = useMemo(() => {
     if (view === "day") return [startOfDay(currentDate)];
@@ -290,9 +365,11 @@ export default function ScheduleTable() {
     return Array.from({ length: 7 }, (_, i) => addDays(sw, i));
   }, [view, currentDate]);
 
+  const gridMinWidthClass = daysToRender.length > 1 ? 'min-w-[900px]' : 'min-w-0';
+
   return (
-    <div className="p-6 h-full flex flex-col">
-      <div className="flex flex-wrap gap-2 justify-between items-center mb-4">
+    <div className="p-4 md:p-6 h-full flex flex-col min-h-0">
+      <div className="flex flex-wrap md:flex-nowrap gap-2 justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <h2 className="text-2xl font-bold">Расписание</h2>
           <span className="text-gray-500 text-sm">
@@ -303,11 +380,11 @@ export default function ScheduleTable() {
                 ).toLocaleDateString("ru-RU")}`}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
           <button className={`px-3 py-1 rounded border ${view === "day" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300"}`} onClick={() => setView("day")}>
             День
           </button>
-          <button className={`px-3 py-1 rounded border ${view === "week" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300"}`} onClick={() => setView("week")}>
+          <button className={`hidden md:inline-flex px-3 py-1 rounded border ${view === "week" ? "bg-blue-600 text-white border-blue-600" : "border-gray-300"}`} onClick={() => setView("week")}>
             Неделя
           </button>
           <div className="w-px h-6 bg-gray-200 mx-1" />
@@ -335,12 +412,12 @@ export default function ScheduleTable() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto rounded-lg border border-gray-200 bg-white">
-        <div className="min-w-[900px] grid" style={{ gridTemplateColumns: `80px repeat(${daysToRender.length}, 1fr)` }}>
+      <div className="flex-1 overflow-x-auto overflow-y-auto md:overflow-auto rounded-lg border border-gray-200 bg-white">
+        <div className={`${gridMinWidthClass} grid`} style={{ gridTemplateColumns: `80px repeat(${daysToRender.length}, 1fr)` }}>
           {/* Левая колонка со временем */}
           <div className="relative border-r border-gray-200">
             <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }}>
-              {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
+              {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => HOURS_START + i).map((h) => (
                 <div key={h} className="absolute w-full text-xs text-gray-500" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE - 8 }}>
                   <div className="absolute left-0 right-0 border-t border-gray-100" />
                   <span className="absolute -top-2 left-2 bg-white px-1">{timeLabel(h)}</span>
@@ -371,11 +448,11 @@ export default function ScheduleTable() {
                 </div>
 
                 {/* Сетка времени */}
-                <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }} onDoubleClick={(e) => openCreateAt(day)}>
+                <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }} onDoubleClick={() => openCreateAt(day)}>
 
-                  {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
-                    <div key={h} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE }} />
-                  ))}
+                    {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
+                      <div key={h} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE }} />
+                    ))}
 
                   {/* Сами занятия */}
                   {laid.map((ev) => {
@@ -510,7 +587,7 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
               onChange={(e) => setField("end_time", `${form.end_time.slice(0, 11)}${e.target.value}`)}
               required
               min={`${String(HOURS_START).padStart(2, "0")}:00`}
-              max={`${String(HOURS_END).padStart(2, "0")}:00`}
+              max={`${String(HOURS_END - 1).padStart(2, "0")}:59`}
             />
           </div>
 

@@ -38,7 +38,9 @@ function iconByExt(ext, type) {
 }
 
 export default function MaterialRow({ item, onEdit, onDelete }) {
-  const ext = item.fileExt || (item.title || item.link || "").toString().match(/\.([a-zA-Z0-9]+)(?:$|[?#])/)?.[1]?.toLowerCase();
+  const sourceForExt = (item.url || item.link || item.title || "").toString();
+  const match = sourceForExt.match(/\.([a-zA-Z0-9]+)(?:$|[?#])/);
+  const ext = item.fileExt || (match ? match[1].toLowerCase() : undefined);
   const Icon = iconByExt(ext, item.type);
 
   return (
@@ -51,9 +53,9 @@ export default function MaterialRow({ item, onEdit, onDelete }) {
         </div>
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">
-        {item.link && (
+        {item.url && (
           <a
-            href={item.link}
+            href={item.url}
             target="_blank"
             rel="noopener noreferrer"
             className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center gap-1"

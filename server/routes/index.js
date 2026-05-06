@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import authRouter from './auth.js';
 import tasksRouter from './tasks.js';
+import lessonsRouter from './lessons.js';
+import materialsRouter from './materials.js';
+import usersRouter from './users.js';
+import statisticsRouter from './statistics.js';
 import { authMiddleware } from '../middlewares/auth.js';
 
 function notImplemented(req, res) {
@@ -19,22 +23,18 @@ function buildPlaceholderRouter(resourceName) {
 
 export function mountFeatureRouters(app) {
   // Auth router (auth-specific endpoints)
-  const auth = Router();
-  auth.post('/register', notImplemented);
-  auth.post('/login', notImplemented);
-  auth.post('/refresh', notImplemented);
-  auth.post('/logout', notImplemented);
   app.use('/auth', authRouter);
 
   // CRUD placeholders
-    app.use('/tasks', authMiddleware, tasksRouter);
-  app.use('/lessons', buildPlaceholderRouter('lessons'));
-  app.use('/materials', buildPlaceholderRouter('materials'));
+  app.use('/tasks', authMiddleware, tasksRouter);
+  app.use('/lessons', authMiddleware, lessonsRouter);
+  app.use('/materials', authMiddleware, materialsRouter);
 
-  // Statistics placeholder
-  const stats = Router();
-  stats.get('/', notImplemented);
-  app.use('/statistics', stats);
+  // Statistics
+  app.use('/statistics', authMiddleware, statisticsRouter);
+
+  // Users
+  app.use('/users', authMiddleware, usersRouter);
 }
 
 export default { mountFeatureRouters };

@@ -1,163 +1,189 @@
-# Study Platform — фронтенд
+# Study Platform — учебная платформа (Frontend + API)
 
-Клиентская часть веб‑приложения учебной платформы. Проект собран на базе React и Vite, со стилями на Tailwind CSS. Поддерживается быстрый hot‑reload (HMR) для удобной разработки и базовая проверка кода ESLint.
+Единый репозиторий клиентской части (SPA на React) и серверного API (Express + Prisma) для планирования индивидуального учебного процесса: задачи по предметам, расписание занятий, материалы и статистика.
 
-Если каких‑то деталей нет в этом README, отмечено как TODO — их следует уточнить в проектной документации или у авторов.
+## Что реализовано
 
-## Обзор
-- Язык/фреймворк: React 19 (SPA)
-- Сборщик/дев‑сервер: Vite 6
-- Стили: Tailwind CSS 4 (+ PostCSS, Autoprefixer)
-- Линтинг: ESLint 9
-- Менеджер пакетов: npm (по наличию package-lock.json)
-- Точка входа: index.html → src/main.jsx → <App />
-- Контекст/состояние: контекст профиля (src/context/ProfileContext.jsx)
-
-### Функциональность (планирование индивидуального учебного процесса)
+Frontend (SPA):
 - Дашборд с компактным календарём (неделя/месяц) и списком задач.
-- Задачи по предметам: дедлайны, приоритеты (низкий/средний/высокий), отметка выполнения.
-- Фильтры: по предмету и по выбранной дате из календаря.
-- Сохранение задач и материалов в LocalStorage (без бэкенда) — данные не пропадают при перезагрузке страницы.
-- Раздел «Материалы»: добавление/редактирование/удаление ресурсов обучения с фильтрацией по типам.
-- Раздел «Расписание»: таблица на неделю (без чётности).
+- Задачи по предметам: дедлайны, приоритеты (низкий/средний/высокий), отметка выполнения, базовая статистика за день/неделю/месяц.
+- Фильтры задач по предмету и по выбранной дате из календаря.
+- Раздел «Материалы»: список, добавление и удаление учебных ресурсов, фильтрация по типам. При отсутствии токена работает в демо‑режиме «in‑memory» (без сохранения на сервер).
+- Раздел «Расписание»: неделя без чётности (создание, редактирование и удаление занятий доступны через API; на клиенте — отображение и базовые операции).
 - Боковое меню с навигацией и подсветкой активного раздела.
 
+Backend (API):
+- Публичные сервисные эндпоинты: GET /health, GET /ready (проверка подключения к БД), GET /version, GET /.
+- Аутентификация: регистрация, вход, обновление токена и выход на JWT (bcrypt для хеширования паролей, Zod для валидации):
+  - POST /auth/register, POST /auth/login, POST /auth/refresh, POST /auth/logout.
+- Профиль пользователя: получение и обновление профиля, смена пароля:
+  - GET /users/me, PATCH /users/me, PATCH /users/password.
+- Задачи: список/создание/обновление/удаление, авто‑установка completedAt при смене статуса, агрегатная статистика за день/неделю/месяц:
+  - GET /tasks, POST /tasks, PATCH /tasks/:id, DELETE /tasks/:id, GET /tasks/stats.
+- Занятия (расписание): список/создание/обновление/удаление. Поддерживаются опциональные поля title/description/color; при необходимости сервер пытается безопасно добавить отсутствующие колонки в БД:
+  - GET /lessons, POST /lessons, PATCH /lessons/:id, DELETE /lessons/:id.
+- Материалы: список/создание/удаление:
+  - GET /materials, POST /materials, DELETE /materials/:id.
+- Сводная статистика: агрегирование по задачам и занятиям на базе утилиты из фронтенда (src/utils/statistics.js):
+  - GET /statistics с режимами mode=day|week|month или произвольным интервалом startDate/endDate.
+
+Единый формат ошибок и централизованный обработчик, middleware авторизации (Bearer access_token), CORS и безопасность (helmet).
+
+## Технологический стек
+
+Frontend:
+- React 19, React Router 6
+- Vite 6 (dev‑сервер, сборка), HMR
+- Tailwind CSS 4, PostCSS, Autoprefixer
+- ESLint 9 (правила React Hooks и React Refresh)
+- Библиотеки: dayjs, date‑fns, react‑calendar, lucide‑react, react‑icons
+
+Backend:
+- Node.js 18+ (рекомендуемая LTS)
+- Express 4, CORS, helmet
+- Валидация: Zod 4
+- Аутентификация: jsonwebtoken (JWT), bcrypt
+- Доступ к БД: Prisma 7 (+ @prisma/adapter‑pg)
+- Dev: nodemon
+
+База данных и инфраструктура:
+- PostgreSQL 16 (Docker Compose)
+- Переменные окружения через dotenv
+
+Инструменты проекта:
+- ESLint, Tailwind/PostCSS конфиги, Vite конфиг
+
 ## Требования
-- Node.js LTS (рекомендуется >= 18). TODO: уточнить минимально поддерживаемую версию Node.js/Vite.
-- npm (идёт вместе с Node.js).
+- Node.js LTS 18+ и npm
+- Docker (для локального PostgreSQL)
 
 ## Установка и запуск
-1. Установите зависимости:
-   - npm install
-2. Запуск дев‑сервера (HMR):
-   - npm run dev
-3. Сборка production‑бандла:
-   - npm run build
-4. Локальный предпросмотр собранной версии:
-   - npm run preview
-5. Запуск линтера:
-   - npm run lint
+
+1) Установка зависимостей
+- npm install
+
+2) Запуск фронтенда (dev)
+- Скопируйте .env.development.example → .env.development
+- При необходимости задайте адрес API: VITE_API_BASE_URL=http://localhost:3001
+- Запустите dev‑сервер: npm run dev
+
+3) Запуск backend API (dev)
+- Поднимите БД: docker compose up -d (см. docker-compose.yml)
+- Скопируйте .env.example → .env и задайте переменные (см. ниже)
+- (При наличии миграций) примените их с помощью Prisma
+- Запустите API: npm run server:dev
+- Проверьте сервисные эндпоинты: GET /health, GET /ready
+
+4) Production‑сборка фронтенда
+- npm run build
+- Предпросмотр собранного приложения: npm run preview
+
+5) Линтинг
+- npm run lint
 
 ## Скрипты (package.json)
-- dev — запускает Vite dev server
+- dev — запуск Vite dev‑сервера
 - build — сборка production‑версии (vite build)
-- preview — локальный сервер предпросмотра собранного приложения
+- preview — локальный предпросмотр сборки
 - lint — проверка кода ESLint
+- server — запуск API в прод‑режиме (node server/index.js)
+- server:dev — запуск API в dev‑режиме с перезапуском (nodemon)
 
 ## Переменные окружения
-Проект использует Vite, поэтому пользовательские переменные окружения должны начинаться с префикса VITE_. Файлы конфигурации могут быть размещены в корне проекта (.env, .env.development, .env.production и т. п.).
 
-Примеры:
-- VITE_API_BASE_URL=https://api.example.com  — базовый URL API. TODO: указать реальный адрес.
-- VITE_FEATURE_FLAG_X=true — флаг для включения экспериментального функционала. TODO: при необходимости добавить/описать.
+Frontend (Vite):
+- VITE_API_BASE_URL — базовый URL API (по умолчанию http://localhost:3001)
 
-Как использовать в коде:
-import.meta.env.VITE_API_BASE_URL
+Backend (см. .env.example):
+- PORT=3001 — порт API
+- CORS_ORIGIN=http://localhost:5173 — источник для CORS (Vite dev‑сервер)
+- DATABASE_URL=postgresql://study:study_password@localhost:5432/study_db?schema=public
+- JWT_SECRET, JWT_REFRESH_SECRET — длинные случайные строки
+- ACCESS_TOKEN_TTL=15m, REFRESH_TOKEN_TTL=7d — время жизни токенов
+- BCRYPT_SALT_ROUNDS=10 — сложность хеширования пароля
+
+Использование переменных на фронтенде: import.meta.env.VITE_API_BASE_URL
+
+## Быстрый старт интеграции фронтенда с API
+1. Убедитесь, что API запущен на http://localhost:3001
+2. Создайте .env.development с VITE_API_BASE_URL=http://localhost:3001
+3. npm run dev
+4. Для доступа к защищённым разделам (задачи/расписание/материалы) авторизуйтесь через /auth/login и используйте токен (UI логина может отсутствовать; фронтенд переключается в «in‑memory» режим без токена и использует серверные данные при наличии токена в контексте аутентификации).
 
 ## Структура проекта (основное)
-Проектный корень:
-- index.html — корневой HTML и точка подключения скрипта
-- src/ — исходный код приложения
-  - main.jsx — инициализация React‑приложения и монтирование в #root
-  - App.jsx — корневой компонент приложения (упоминается в main.jsx)
-  - context/ProfileContext.jsx — провайдер контекста профиля
+- index.html — корневой HTML
+- src/ — исходники фронтенда
+  - main.jsx — инициализация и монтирование React в #root
+  - App.jsx — корневой компонент SPA
+  - context/ProfileContext.jsx — провайдер контекста профиля/аутентификации
+  - lib/api.js — простой HTTP‑клиент для вызовов API
   - style.css — глобальные стили (Tailwind и др.)
-- public/ — статические файлы
-- vite.config.js — конфигурация Vite
-- tailwind.config.js — конфигурация Tailwind CSS (в т. ч. пользовательские utility через plugin)
-- postcss.config.js — конфигурация PostCSS
-- eslint.config.js — конфигурация ESLint
-- package.json / package-lock.json — метаданные и зависимости
+- public/ — статика
+- server/ — исходники API
+  - index.js — точка входа сервера, сервисные эндпоинты
+  - routes/ — роутеры (auth, users, tasks, lessons, materials, statistics)
+  - middlewares/ — middleware авторизации и обработки ошибок
+  - db/prisma.js — инициализация Prisma‑клиента (PostgreSQL)
+- prisma.config.ts — конфигурация Prisma
+- docker-compose.yml — локальный PostgreSQL
+- vite.config.js, tailwind.config.js, postcss.config.js, eslint.config.js — конфигурации инструментов
+- package.json / package‑lock.json — метаданные и зависимости
 
 Примечания по стилям:
-- Tailwind CSS 4 подключён и настроен для сканирования index.html и файлов в src/**/*.{js,ts,jsx,tsx}.
-- В tailwind.config.js добавлен пользовательский класс .input-style через plugin().
+- Tailwind CSS 4 сканирует index.html и файлы в src/**/*.{js,ts,jsx,tsx}
+- В tailwind.config.js добавлены пользовательские утилиты через plugin()
 
-## Тесты
-В репозитории нет настроенного тестового фреймворка.
-- TODO: определить стратегию тестирования (например, Vitest + React Testing Library) и добавить соответствующие скрипты (test, test:watch, coverage и т. п.).
+## Краткий обзор API
 
-## Лицензия
-ISC (согласно полю license в package.json).
+Публичные:
+- GET /health → { status: "ok" }
+- GET /ready → { ready: true|false }
+- GET /version → { name, version }
+- GET / → приветственное сообщение
 
-## Разработка и советы
-- Быстрый перезапуск модулей (HMR) доступен из коробки при npm run dev.
-- Для корректного доступа к переменным окружения используйте префикс VITE_.
-- Рекомендуется придерживаться настроек ESLint и при необходимости расширять правила под потребности проекта. TODO: при необходимости описать соглашения код‑стайла.
+Аутентификация:
+- POST /auth/register { name, email, password }
+- POST /auth/login { email, password }
+- POST /auth/refresh { refresh_token }
+- POST /auth/logout
+
+Профиль:
+- GET /users/me
+- PATCH /users/me { name?, email?, group?, avatar?, theme?, language? }
+- PATCH /users/password { currentPassword, newPassword }
+
+Задачи:
+- GET /tasks — список задач текущего пользователя
+- POST /tasks { title, subject, status?, planned_date?, estimated_time?, priority?, description? }
+- PATCH /tasks/:id — частичное обновление (auto completedAt при status=done)
+- DELETE /tasks/:id
+- GET /tasks/stats — { day, week, month }
+
+Занятия:
+- GET /lessons
+- POST /lessons { subject, title?, description?, color?, start_time, end_time }
+- PATCH /lessons/:id
+- DELETE /lessons/:id
+
+Материалы:
+- GET /materials
+- POST /materials { title, type, subject?, url?, description?, tags?[] }
+- DELETE /materials/:id
+
+Статистика:
+- GET /statistics?mode=day|week|month&date=YYYY-MM-DD
+- или GET /statistics?startDate=ISO&endDate=ISO
+- Ответ: агрегаты по задачам/занятиям (см. src/utils/statistics.js)
+
+## Тестирование
+На текущий момент автотесты не настроены. Рекомендуется добавить Vitest + React Testing Library (frontend) и supertest (backend) с соответствующими npm‑скриптами.
 
 ## Деплой
-Общий порядок:
-1) npm run build
-2) Разместить содержимое папки dist на статическом хостинге (NGINX, CDN, GitHub Pages и т. п.).
+Frontend:
+- npm run build → разместить содержимое папки dist на статическом хостинге (NGINX/CDN/GitHub Pages и т. п.)
 
-TODO: указать целевую платформу деплоя, стратегию кэширования и настройки базового пути (base) в Vite при необходимости.
+Backend:
+- Запуск Node.js‑сервера (server/index.js) на желаемом порту (PORT), убедиться в корректном CORS и доступе к БД (DATABASE_URL)
 
-
-## Интеграция внешнего проекта: study-planner
-
-В этот репозиторий планируется добавить проект из репозитория:
-
-- https://github.com/tatyanaa05/study-planner.git
-
-Предпочитаемый способ интеграции — Git submodule, чтобы внешний проект обновлялся независимо. Текущее состояние удалённого репозитория на момент подготовки README: репозиторий пуст (не содержит коммитов), поэтому подключение подмодуля пока невозможно. Как только в удалённом репозитории появится хотя бы один коммит (и будет определена ветка по умолчанию, например main), выполните шаги ниже.
-
-### Добавление как подмодуль (после появления коммитов)
-
-1) Добавить подмодуль в папку external/study-planner (пример для ветки main):
-
-   git submodule add -b main https://github.com/tatyanaa05/study-planner.git external/study-planner
-
-2) Зафиксировать изменения:
-
-   git add .gitmodules external/study-planner
-   git commit -m "Add study-planner as a git submodule"
-
-3) Клонирование репозитория с подмодулями на новом рабочем месте:
-
-   git clone --recurse-submodules <url-этого-репозитория>
-   cd study-platform
-   git submodule update --init --recursive
-
-4) Обновление подмодуля до последнего коммита удалённой ветки:
-
-   git submodule update --remote --merge external/study-planner
-
-### Альтернативы
-
-- Git subtree:
-  - Подходит, если требуется хранить код внешнего проекта в истории этого репозитория без подмодулей. Команда будет доступна после появления коммитов в study-planner:
-    - git remote add study-planner https://github.com/tatyanaa05/study-planner.git
-    - git fetch study-planner
-    - git subtree add --prefix external/study-planner study-planner main --squash
-
-  - Вендоринг (копирование исходников):
-  - При отсутствии доступа к удалённому репозиторию можно временно поместить код во внешнюю папку external/study-planner вручную (например, распаковав архив .zip), а затем заменить на submodule/subtree, когда доступ появится.
-
----
-
-## Backend (старт разработки поэтапно)
-
-На первом шаге добавлен минимальный каркас API на Express:
-
-- Путь: server/index.js
-- Зависимости: express, cors, helmet
-- Запуск:
-  - npm run server — старт в прод-режиме (node server/index.js)
-  - npm run server:dev — разработка с перезапуском (nodemon)
-- Порт по умолчанию: 3001 (env PORT поддерживается)
-
-Доступные эндпоинты (MVP):
-- GET /health → { status: "ok" }
-- GET /ready → { ready: true }
-- GET /version → { name, version } (читается из package.json)
-- GET / → { message: 'Study Platform API (skeleton)' }
-
-Дальнейшие этапы (согласно плану из обсуждения):
-1) Добавить структуру модулей (routes/controllers/schemas).
-2) Реализовать /auth (register/login) с JWT, bcrypt, валидацией.
-3) Интегрировать базу данных (PostgreSQL) через Prisma и docker-compose.
-4) CRUD для /tasks, /lessons, /materials.
-5) /statistics (с параметрами периода) — логика на основе src/utils/statistics.js.
-6) Swagger/OpenAPI, rate limiting, конфигурация CORS через .env, тесты (supertest).
-
-Фронтенд может вызывать сервисные эндпоинты уже сейчас для проверки соединения (например, при запуске приложения делать ping /health).
+## Лицензия
+ISC (см. поле license в package.json)

@@ -13,7 +13,8 @@ const PORT = config.port;
 // Basic middlewares
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin })); // CORS настраивается через переменную окружения
-app.use(express.json());
+// Увеличим лимит тела запроса, чтобы поддержать загрузку аватаров как data URL
+app.use(express.json({ limit: '6mb' }));
 
 // Health endpoints
 app.get('/health', (_req, res) => {

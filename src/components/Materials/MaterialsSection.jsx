@@ -1,14 +1,13 @@
-import initialMaterials from "../../data/materials.json";
 import MaterialsFilter from "./MaterialsFilter.jsx";
 import MaterialsForm from "./MaterialsForm.jsx";
 import MaterialsList from "./MaterialsList.jsx";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
 
 export default function MaterialsSection() {
-  const [materials, setMaterials] = useState(() => {
-    const saved = localStorage.getItem("materials");
-    return saved ? JSON.parse(saved) : initialMaterials;
-  });
+  const [materials, setMaterials] = useState([]);
+  const { accessToken } = useAuth?.() || {};
 
   const [activeTab, setActiveTab] = useState("all");
   const [editing, setEditing] = useState(null);
@@ -19,9 +18,14 @@ export default function MaterialsSection() {
       ? materials
       : materials.filter((m) => m.type === activeTab);
 
+
   useEffect(() => {
-    localStorage.setItem("materials", JSON.stringify(materials));
-  }, [materials]);
+    if (!accessToken) return;
+    api
+      .listMaterials()
+      .then((list) => setMaterials(list))
+      .catch(() => {});
+  }, [accessToken]);
 
   const handleSave = (item) => {
     if (editing) {
@@ -34,10 +38,41 @@ export default function MaterialsSection() {
       setMaterials((prev) => [newItem, ...prev]);
     }
     setShowModal(false);
+
+    if (accessToken) {
+      const body = {
+        title: item.title,
+        type: item.type,
+        subject: item.subject || undefined,
+        url: item.url || undefined,
+        description: item.description || undefined,
+        tags: item.tags || undefined,
+      };
+      api
+        .createMaterial(body)
+        .then(() => api.listMaterials())
+        .then((list) => setMaterials(list))
+        .catch(() => {});
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     setMaterials((prev) => prev.filter((m) => m.id !== id));
+    try {
+      if (accessToken) {
+        await api.deleteMaterial(id);
+
+        const list = await api.listMaterials();
+        setMaterials(list);
+      }
+    } catch (_e) {
+      try {
+        if (accessToken) {
+          const list = await api.listMaterials();
+          setMaterials(list);
+        }
+      } catch (_) {}
+    }
   };
 
   const openModalForEdit = (item) => {
@@ -51,12 +86,12 @@ export default function MaterialsSection() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap md:flex-nowrap">
         <h2 className="text-2xl font-bold">📚 Материалы</h2>
         <button
           onClick={openModalForAdd}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 w-full sm:w-auto"
         >
           ➕ Добавить материал
         </button>
@@ -64,7 +99,7 @@ export default function MaterialsSection() {
 
       <MaterialsFilter activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="flex-1 overflow-y-auto pr-2 mt-4">
+      <div className="flex-1 overflow-y-auto pr-0 md:pr-2 mt-4 min-h-0">
         <MaterialsList
           materials={filtered}
           onEdit={openModalForEdit}
@@ -75,7 +110,7 @@ export default function MaterialsSection() {
       
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 mt-16 pointer-events-none">
-    <div className="bg-white w-full max-w-xl rounded-lg shadow-xl p-6 relative pointer-events-auto">
+    <div className="bg-white w-full max-w-xl rounded-lg shadow-xl p-4 sm:p-6 relative pointer-events-auto">
             <button
               onClick={() => {
                 setShowModal(false);
@@ -99,3 +134,6 @@ export default function MaterialsSection() {
     </div>
   );
 }
+
+// Загрузка материалов при наличии токена (вынесено в отдельный эффект ниже компонента не получится, оставим здесь)
+// Примонтируем эффект в теле компонента выше

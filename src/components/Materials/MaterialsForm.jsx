@@ -18,7 +18,8 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
         title: initialData.title || "",
         description: initialData.description || "",
         type: initialData.type || "article",
-        link: initialData.link || "",
+        // При редактировании подставляем ссылку из url (API) или legacy link
+        link: initialData.link || initialData.url || "",
         subject: initialData.subject || "",
         file: null,
         fileName: initialData.fileName || initialData.title || "",
@@ -54,6 +55,8 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
     const item = {
       ...form,
       link: form.link,
+      // Нормализуем поле для UI и API
+      url: form.link || undefined,
     };
     onSave(item);
     setForm({
