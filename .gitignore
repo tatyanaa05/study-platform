@@ -25,3 +25,5 @@ dist-ssr
 
 # External vendored/integration dirs
 external/study-planner/
+
+/generated/prisma
