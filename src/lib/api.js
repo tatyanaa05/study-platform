@@ -1,26 +1,51 @@
-// Простой HTTP‑клиент для вызовов backend API
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 let accessToken = null;
+let onUnauthorized = null;
 
 export function setAccessToken(token) {
   accessToken = token || null;
+}
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
 }
 
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  
+  if (res.status === 401 && accessToken && onUnauthorized && path !== '/auth/refresh' && path !== '/auth/login') {
+    try {
+      const newToken = await onUnauthorized();
+      if (newToken) {
+        // Retry with new token
+        const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
+        const retryRes = await fetch(`${API_BASE}${path}`, { ...options, headers: retryHeaders });
+        if (!retryRes.ok) throw await createError(retryRes);
+        if (retryRes.status === 204) return null;
+        return retryRes.json();
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
+
   if (!res.ok) {
-    let payload;
-    try { payload = await res.json(); } catch (_) { payload = { error: { message: res.statusText } }; }
-    const err = new Error(payload?.error?.message || res.statusText);
-    err.status = res.status;
-    err.payload = payload;
-    throw err;
+    throw await createError(res);
   }
   if (res.status === 204) return null;
   return res.json();
+}
+
+async function createError(res) {
+  let payload;
+  try { payload = await res.json(); } catch (_) { payload = { error: { message: res.statusText } }; }
+  const err = new Error(payload?.error?.message || res.statusText);
+  err.status = res.status;
+  err.payload = payload;
+  return err;
 }
 
 export const api = {
@@ -59,6 +84,7 @@ export const api = {
 
   // statistics
   stats: (query) => request(`/statistics?${new URLSearchParams(query)}`),
+  setUnauthorizedHandler,
 };
 
 export default api;
