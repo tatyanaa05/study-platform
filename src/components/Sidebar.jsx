@@ -9,9 +9,9 @@ const menuItems = [
   { icon: <FaUserCog />, label: "Настройки профиля", path: "/settings" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }) {
   return (
-    <div className="w-56 h-full bg-white p-4 rounded-2xl shadow flex-none">
+    <div className="w-full md:w-56 h-full bg-white p-4 rounded-2xl shadow flex-none">
       <div className="mb-4">
         <h1 className="text-xl font-bold tracking-tight">Учебный планер</h1>
         <p className="text-xs text-gray-500">планирование и организация</p>
@@ -21,6 +21,7 @@ export default function Sidebar() {
           <li key={idx}>
             <NavLink
               to={item.path}
+              onClick={() => { if (onNavigate) onNavigate(); }}
               className={({ isActive }) =>
                 `flex items-center space-x-3 p-2 rounded-xl cursor-pointer transition-colors duration-200
                  ${
