@@ -12,11 +12,8 @@ export function ProfileProvider({ children }) {
   const { user, accessToken } = useAuth?.() || {};
   const [profile, setProfile] = useState(() => ({
     name: user?.name || "Гость",
-    group: "",
     email: user?.email || "",
     avatar: null,
-    theme: "light",
-    language: "ru",
   }));
   const [error, setError] = useState(null);
 
@@ -28,8 +25,6 @@ export function ProfileProvider({ children }) {
         group: "",
         email: "",
         avatar: null,
-        theme: "light",
-        language: "ru",
       });
       return;
     }
@@ -52,16 +47,10 @@ export function ProfileProvider({ children }) {
         console.log("Profile loaded from server:", u);
         const next = {
           name: u.name || "Гость",
-          group: u.group || "",
           email: u.email || "",
           avatar: u.avatar_url || null,
-          theme: u.theme || "light",
-          language: u.language || "ru",
         };
         setProfile(next);
-        try {
-          document.documentElement.classList.toggle("dark", next.theme === "dark");
-        } catch (_) {}
       })
       .catch((err) => {
         console.error("Failed to fetch profile:", err);
@@ -76,34 +65,22 @@ export function ProfileProvider({ children }) {
     console.log("Saving profile:", { ...newProfile, avatar: newProfile.avatar ? "data:image/..." : null });
     // Сначала обновим локально для отзывчивости UI
     setProfile(newProfile);
-    try {
-      document.documentElement.classList.toggle("dark", newProfile.theme === "dark");
-    } catch (_) {}
 
     // Затем попробуем сохранить на сервере (если авторизованы)
     try {
       const payload = {
         name: newProfile.name,
         email: newProfile.email,
-        group: newProfile.group || null,
         avatar: newProfile.avatar || null,
-        theme: newProfile.theme,
-        language: newProfile.language,
       };
       const updated = await api.updateMe(payload);
       console.log("Profile saved successfully, server returned:", { ...updated, avatar_url: updated.avatar_url ? "data:image/..." : null });
       const normalized = {
         name: updated.name,
-        email: updated.email,
-        group: updated.group || "",
+        email: updated.email,  
         avatar: updated.avatar_url || null,
-        theme: updated.theme || "light",
-        language: updated.language || "ru",
       };
       setProfile(normalized);
-      try {
-        document.documentElement.classList.toggle("dark", normalized.theme === "dark");
-      } catch (_) {}
     } catch (e) {
       console.error("Failed to save profile:", e);
       setError(e.message || "Ошибка при сохранении профиля");
