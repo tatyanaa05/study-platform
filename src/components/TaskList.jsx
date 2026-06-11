@@ -14,18 +14,31 @@ export default function TaskList({ courses, selectedDate }) {
   const [showForm, setShowForm] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [filterCourseId, setFilterCourseId] = useState("");
-  const [filterByDate, setFilterByDate] = useState(false);
+  const [filterByDate, setFilterByDate] = useState(true);
+
+  // При изменении selectedDate извне (через пропсы), убеждаемся что фильтр включен
+  useEffect(() => {
+    if (selectedDate) {
+      setFilterByDate(true);
+    }
+  }, [selectedDate]);
 
   const toggleTask = async (id) => {
     const prev = tasks;
-    const next = tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+    const currentTask = tasks.find(t => t.id === id);
+    if (!currentTask) return;
+
+    let newStatus;
+    if (currentTask.status === 'todo') newStatus = 'in_progress';
+    else if (currentTask.status === 'in_progress') newStatus = 'done';
+    else newStatus = 'todo';
+
+    const next = tasks.map((t) => (t.id === id ? { ...t, status: newStatus, done: newStatus === 'done' } : t));
     setTasks(next);
 
     // Если нет токена — ограничимся локальным переключением
     if (!accessToken) return;
 
-    const toggled = next.find((t) => t.id === id);
-    const newStatus = toggled?.done ? 'done' : 'todo';
     try {
       await api.updateTask(id, { status: newStatus });
       const items = await api.listTasks();
@@ -129,6 +142,7 @@ export default function TaskList({ courses, selectedDate }) {
       id: t.id,
       text: t.title || t.subject || "Задача",
       done: t.status === "done" || !!t.completed_at,
+      status: t.status || (t.completed_at ? "done" : "todo"),
       deadline: t.planned_date ? dayjs(t.planned_date).format("YYYY-MM-DD") : "",
       priority: t.priority || "medium",
       courseId: t.subject || null, // в UI courseId может быть id предмета; используем subject как ключ
@@ -174,41 +188,63 @@ export default function TaskList({ courses, selectedDate }) {
           return (
             <li
               key={task.id}
-              className={`flex flex-col gap-1 cursor-pointer border rounded-lg px-3 py-2 md:px-4 md:py-3 hover:bg-gray-100 transition`}
+              className={`flex flex-col gap-1 cursor-pointer border rounded-lg px-3 py-2 md:px-4 md:py-3 hover:bg-gray-100 transition relative`}
               onClick={() => setSelectedTask(task)}
             >
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={task.done}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => toggleTask(task.id)}
-                  className="accent-blue-500"
-                />
+                <div 
+                  className={`w-5 h-5 rounded-md border flex items-center justify-center cursor-pointer transition-colors ${
+                    task.status === 'done' ? 'bg-green-500 border-green-500' : 
+                    task.status === 'in_progress' ? 'bg-yellow-500 border-yellow-500' : 'bg-white border-gray-300'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleTask(task.id);
+                  }}
+                >
+                  {task.status === 'done' && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {task.status === 'in_progress' && (
+                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                  )}
+                </div>
                 <span
                   className={`${
-                    task.done ? "line-through text-gray-400" : ""
+                    task.status === 'done' ? "line-through text-gray-400" : ""
                   } font-medium text-sm md:text-base`}
                 >
                   {task.text}
                 </span>
-                {task.priority && (
-                  <span
-                    className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-                      task.priority === "high"
-                        ? "bg-red-100 text-red-700"
+                <div className="ml-auto flex flex-col items-end gap-1">
+                  {task.status && (
+                    <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                      task.status === 'done' ? 'bg-green-100 text-green-700' :
+                      task.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {task.status === 'done' ? 'Выполнено' : task.status === 'in_progress' ? 'В процессе' : 'Ожидает'}
+                    </span>
+                  )}
+                  {task.priority && (
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        task.priority === "high"
+                          ? "bg-red-100 text-red-700"
+                          : task.priority === "medium"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {task.priority === "high"
+                        ? "Высокий"
                         : task.priority === "medium"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {task.priority === "high"
-                      ? "Высокий"
-                      : task.priority === "medium"
-                      ? "Средний"
-                      : "Низкий"}
-                  </span>
-                )}
+                        ? "Средний"
+                        : "Низкий"}
+                    </span>
+                  )}
+                </div>
               </div>
               {task.deadline && (
                 <span className="text-xs text-gray-600">
@@ -314,6 +350,20 @@ export default function TaskList({ courses, selectedDate }) {
                   className="w-full border rounded-md px-3 py-2 text-sm mb-2"
                 />
                 <select
+                  value={selectedTask.status || "todo"}
+                  onChange={(e) =>
+                    setSelectedTask({
+                      ...selectedTask,
+                      status: e.target.value,
+                    })
+                  }
+                  className="w-full border rounded-md px-3 py-2 text-sm mb-2"
+                >
+                  <option value="todo">Ожидает</option>
+                  <option value="in_progress">В процессе</option>
+                  <option value="done">Выполнено</option>
+                </select>
+                <select
                   value={selectedTask.priority || "medium"}
                   onChange={(e) =>
                     setSelectedTask({
@@ -365,6 +415,7 @@ export default function TaskList({ courses, selectedDate }) {
                         const body = {
                           title: edited.text,
                           subject: subjectVal,
+                          status: edited.status,
                           priority: edited.priority ?? null,
                           planned_date: edited.deadline ? `${edited.deadline}T00:00:00Z` : null,
                         };
