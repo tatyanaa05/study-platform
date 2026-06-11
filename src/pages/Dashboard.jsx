@@ -11,11 +11,12 @@ import { api } from "../lib/api.js";
 export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const { profile } = useProfile();
+  const [tasks, setTasks] = useState([]);
   const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
     let aborted = false;
-    async function load() {
+    async function loadLessons() {
       try {
         const lessons = await api.listLessons();
         if (aborted) return;
@@ -26,17 +27,39 @@ export default function Dashboard() {
       } catch (_e) {
       }
     }
-    load();
+    async function loadTasks() {
+      try {
+        const items = await api.listTasks();
+        if (aborted) return;
+        setTasks(items.map((t) => ({
+          id: t.id,
+          deadline: t.planned_date ? dayjs(t.planned_date).format("YYYY-MM-DD") : "",
+        })));
+      } catch (_e) {
+      }
+    }
+
+    loadLessons();
+    loadTasks();
 
     function onLessonsUpdated() {
-      load();
+      loadLessons();
     }
+    function onTasksUpdated() {
+      loadTasks();
+    }
+
     try {
       window.addEventListener("lessonsUpdated", onLessonsUpdated);
+      window.addEventListener("tasksUpdated", onTasksUpdated);
     } catch (_) {}
+
     return () => {
       aborted = true;
-      try { window.removeEventListener("lessonsUpdated", onLessonsUpdated); } catch (_) {}
+      try { 
+        window.removeEventListener("lessonsUpdated", onLessonsUpdated);
+        window.removeEventListener("tasksUpdated", onTasksUpdated);
+      } catch (_) {}
     };
   }, []);
 
@@ -45,7 +68,7 @@ export default function Dashboard() {
       <Header studentName={profile.name} />
       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_400px] gap-4 md:gap-6">
         <div className="space-y-4 md:space-y-6">
-          <YearCalendar selectedDate={selectedDate} setSelectedDate={setSelectedDate}/>
+          <YearCalendar selectedDate={selectedDate} setSelectedDate={setSelectedDate} tasks={tasks}/>
           <NextEvent />
         </div>
         <div className="space-y-4 md:space-y-6">
