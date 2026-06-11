@@ -75,29 +75,29 @@ export default function StudentProfileSection() {
           </button>
         </div>
 
-        <div className="flex justify-between items-center gap-3 pt-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               onClick={handleLogout}
-              className="text-red-600 border border-red-200 px-4 py-2 rounded hover:bg-red-50"
+              className="text-red-600 border border-red-200 px-4 py-2 rounded hover:bg-red-50 w-full sm:w-auto"
             >
               Выйти из аккаунта
             </button>
-            <DeleteAccountSection compact />
+            <DeleteAccountSection compact className="w-full sm:w-auto" />
           </div>
 
           {editing ? (
             <button
               onClick={handleSave}
               disabled={!!emailError}
-              className={`px-4 py-2 rounded text-white ${emailError ? "bg-blue-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
+              className={`px-4 py-2 rounded text-white w-full sm:w-auto ${emailError ? "bg-blue-300 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
             >
               Сохранить
             </button>
           ) : (
             <button
               onClick={() => setEditing(true)}
-              className="bg-gray-100 px-4 py-2 rounded hover:bg-gray-200"
+              className="bg-gray-100 px-4 py-2 rounded hover:bg-gray-200 w-full sm:w-auto"
             >
               Редактировать
             </button>
