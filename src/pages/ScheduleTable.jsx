@@ -2,21 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { api } from "../lib/api.js";
 
-// Модель занятия
-// {
-//   id: string
-//   subject: string
-//   title: string
-//   description?: string
-//   start_time: string (ISO: 2026-04-13T10:00)
-//   end_time: string (ISO)
-//   color?: string (e.g. #4F8CFF)
-// }
 
-const HOURS_START = 0;
+const HOURS_START = 6;
 const HOURS_END = 24;
-const MINUTES_TOTAL = (HOURS_END - HOURS_START) * 60; // 24h -> 1440
-const PX_PER_MINUTE = 1; // высота контейнера = 720px
+const MINUTES_TOTAL = (HOURS_END - HOURS_START) * 60;
+const PX_PER_MINUTE = 1;
 
 const ruDaysShort = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 
@@ -231,14 +221,15 @@ export default function ScheduleTable() {
       return;
     }
     const dateStr = formatISO(dayDate);
-    const start = `${dateStr}T${String(hour).padStart(2, "0")}:00`;
+    const startHour = Math.max(HOURS_START, hour);
+    const start = `${dateStr}T${String(startHour).padStart(2, "0")}:00`;
     // Завершаем занятие через час, но не за пределами суток
     let end;
-    if (hour >= HOURS_END - 1) {
+    if (startHour >= HOURS_END - 1) {
       // если начало в 23:00 — окончание 23:59
       end = `${dateStr}T${String(HOURS_END - 1).padStart(2, "0")}:59`;
     } else {
-      const endHour = hour + 1;
+      const endHour = startHour + 1;
       end = `${dateStr}T${String(endHour).padStart(2, "0")}:00`;
     }
     setEditing({
@@ -417,10 +408,10 @@ export default function ScheduleTable() {
           {/* Левая колонка со временем */}
           <div className="relative border-r border-gray-200">
             <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }}>
-              {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => HOURS_START + i).map((h) => (
-                <div key={h} className="absolute w-full text-xs text-gray-500" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE - 8 }}>
+              {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
+                <div key={h} className="absolute w-full text-xs text-gray-500" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE }}>
                   <div className="absolute left-0 right-0 border-t border-gray-100" />
-                  <span className="absolute -top-2 left-2 bg-white px-1">{timeLabel(h)}</span>
+                  <span className="absolute -top-2 left-2 bg-white px-1 z-10">{h === 24 ? "00:00" : timeLabel(h)}</span>
                 </div>
               ))}
             </div>
@@ -448,7 +439,13 @@ export default function ScheduleTable() {
                 </div>
 
                 {/* Сетка времени */}
-                <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }} onDoubleClick={() => openCreateAt(day)}>
+                <div className="relative" style={{ height: MINUTES_TOTAL * PX_PER_MINUTE }} onDoubleClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const clickedMinutes = y / PX_PER_MINUTE;
+                  const clickedHour = Math.floor(clickedMinutes / 60) + HOURS_START;
+                  openCreateAt(day, clickedHour);
+                }}>
 
                     {Array.from({ length: HOURS_END - HOURS_START + 1 }, (_, i) => HOURS_START + i).map((h) => (
                       <div key={h} className="absolute left-0 right-0 border-t border-gray-100" style={{ top: (h - HOURS_START) * 60 * PX_PER_MINUTE }} />
@@ -553,11 +550,13 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="date"
               className="w-full border rounded px-2 py-1"
-              value={form.start_time.slice(0, 10)}
+              value={form.start_time.includes("T") ? form.start_time.split("T")[0] : formatISO(new Date())}
               onChange={(e) => {
                 const d = e.target.value;
-                setField("start_time", `${d}${form.start_time.slice(10)}`);
-                setField("end_time", `${d}${form.end_time.slice(10)}`);
+                const startTimePart = form.start_time.includes("T") ? form.start_time.split("T")[1] : "10:00:00";
+                const endTimePart = form.end_time.includes("T") ? form.end_time.split("T")[1] : "11:00:00";
+                setField("start_time", `${d}T${startTimePart}`);
+                setField("end_time", `${d}T${endTimePart}`);
               }}
               required
             />
@@ -571,8 +570,11 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="time"
               className="w-full border rounded px-2 py-1"
-              value={form.start_time.slice(11, 16)}
-              onChange={(e) => setField("start_time", `${form.start_time.slice(0, 11)}${e.target.value}`)}
+              value={form.start_time.includes("T") ? form.start_time.split("T")[1].slice(0, 5) : "10:00"}
+              onChange={(e) => {
+                const datePart = form.start_time.includes("T") ? form.start_time.split("T")[0] : formatISO(new Date());
+                setField("start_time", `${datePart}T${e.target.value}:00`);
+              }}
               required
               min={`${String(HOURS_START).padStart(2, "0")}:00`}
               max={`${String(HOURS_END - 1).padStart(2, "0")}:59`}
@@ -583,8 +585,11 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="time"
               className="w-full border rounded px-2 py-1"
-              value={form.end_time.slice(11, 16)}
-              onChange={(e) => setField("end_time", `${form.end_time.slice(0, 11)}${e.target.value}`)}
+              value={form.end_time.includes("T") ? form.end_time.split("T")[1].slice(0, 5) : "11:00"}
+              onChange={(e) => {
+                const datePart = form.end_time.includes("T") ? form.end_time.split("T")[0] : formatISO(new Date());
+                setField("end_time", `${datePart}T${e.target.value}:00`);
+              }}
               required
               min={`${String(HOURS_START).padStart(2, "0")}:00`}
               max={`${String(HOURS_END - 1).padStart(2, "0")}:59`}
