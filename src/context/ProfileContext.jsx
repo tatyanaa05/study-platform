@@ -15,7 +15,6 @@ export function ProfileProvider({ children }) {
     email: user?.email || "",
     avatar: null,
   }));
-  const [error, setError] = useState(null);
 
   // При смене авторизованного пользователя обновляем профиль (имя/почта)
   useEffect(() => {
@@ -61,7 +60,6 @@ export function ProfileProvider({ children }) {
   }, [accessToken]);
 
   const saveProfile = async (newProfile) => {
-    setError(null);
     console.log("Saving profile:", { ...newProfile, avatar: newProfile.avatar ? "data:image/..." : null });
     // Сначала обновим локально для отзывчивости UI
     setProfile(newProfile);
@@ -83,12 +81,11 @@ export function ProfileProvider({ children }) {
       setProfile(normalized);
     } catch (e) {
       console.error("Failed to save profile:", e);
-      setError(e.message || "Ошибка при сохранении профиля");
     }
   };
 
   return (
-    <ProfileContext.Provider value={{ profile, saveProfile, error, setError }}>
+    <ProfileContext.Provider value={{ profile, saveProfile}}>
       {children}
     </ProfileContext.Provider>
   );
