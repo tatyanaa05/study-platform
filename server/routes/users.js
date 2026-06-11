@@ -17,10 +17,7 @@ r.get('/me', async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      group: user.group || null,
       avatar_url: user.avatarUrl || null,
-      theme: user.theme || 'light',
-      language: user.language || 'ru',
     });
   } catch (e) {
     next(e);
@@ -33,10 +30,7 @@ r.patch('/me', async (req, res, next) => {
     const schema = z.object({
       name: z.string().min(1, 'Имя обязательно').optional(),
       email: z.string().email('Некорректный email').optional(),
-      group: z.string().max(100).optional().nullable(),
       avatar: z.string().optional().nullable(),
-      theme: z.string().optional(),
-      language: z.string().optional(),
     });
 
     const body = schema.parse(req.body || {});
@@ -54,20 +48,14 @@ r.patch('/me', async (req, res, next) => {
     const data = {};
     if (body.name !== undefined) data.name = body.name;
     if (body.email !== undefined) data.email = body.email;
-    if (body.group !== undefined) data.group = body.group; // может быть null
     if (body.avatar !== undefined) data.avatarUrl = body.avatar; // может быть null
-    if (body.theme !== undefined) data.theme = body.theme;
-    if (body.language !== undefined) data.language = body.language;
 
     const user = await prisma.user.update({ where: { id: userId }, data });
     return res.json({
       id: user.id,
       name: user.name,
       email: user.email,
-      group: user.group || null,
       avatar_url: user.avatarUrl || null,
-      theme: user.theme || 'light',
-      language: user.language || 'ru',
     });
   } catch (e) {
     if (e.name === 'ZodError') {
