@@ -34,13 +34,14 @@ r.patch('/me', async (req, res, next) => {
       name: z.string().min(1, 'Имя обязательно').optional(),
       email: z.string().email('Некорректный email').optional(),
       group: z.string().max(100).optional().nullable(),
-      avatar: z.string().min(1).optional().nullable(),
+      avatar: z.string().optional().nullable(),
       theme: z.string().optional(),
       language: z.string().optional(),
     });
 
     const body = schema.parse(req.body || {});
     const userId = req.user.id;
+    console.log(`Updating profile for user ${userId}, fields:`, { ...body, avatar: body.avatar ? `string(${body.avatar.length})` : body.avatar });
 
     // Проверка уникальности email, если меняется
     if (body.email) {
