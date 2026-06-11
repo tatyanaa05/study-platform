@@ -30,11 +30,11 @@ export default function DeleteAccountSection({ compact = false, className = "" }
   }
 
   return (
-    <div className={`${compact ? "inline-block" : "mt-4"} ${className}`}>
+    <div className={`${compact ? "inline-block" : "mt-4"} ${className} w-full sm:w-auto`}>
       <button
         type="button"
         onClick={() => setConfirmOpen(true)}
-        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 w-full"
       >
         Удалить аккаунт
       </button>
