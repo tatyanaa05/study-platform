@@ -74,6 +74,41 @@ export function AuthProvider({ children }) {
     } catch (_) {}
   }
 
+  // Handle token refresh
+  useEffect(() => {
+    if (!refreshToken) {
+      api.setUnauthorizedHandler(null);
+      return;
+    }
+
+    let refreshingPromise = null;
+
+    api.setUnauthorizedHandler(async () => {
+      if (refreshingPromise) return refreshingPromise;
+
+      refreshingPromise = (async () => {
+        try {
+          const res = await api.refresh({ refresh_token: refreshToken });
+          const newAccess = res.access_token;
+          applyToken(newAccess);
+          try {
+            sessionStorage.setItem('auth.access_token', newAccess);
+          } catch (_) {}
+          return newAccess;
+        } catch (err) {
+          logout();
+          throw err;
+        } finally {
+          refreshingPromise = null;
+        }
+      })();
+
+      return refreshingPromise;
+    });
+
+    return () => api.setUnauthorizedHandler(null);
+  }, [refreshToken]);
+
   // Hydrate from sessionStorage on mount
   useEffect(() => {
     try {
@@ -84,11 +119,10 @@ export function AuthProvider({ children }) {
         applyToken(token);
         setRefresh(refresh || null);
         if (userJson) {
-          try { setUser(JSON.parse(userJson)); } catch { /* ignore */ }
+          try { setUser(JSON.parse(userJson)); } catch { }
         } else {
-          // Fallback: fetch profile from backend
           api.me().then((u) => setUser({ id: u.id, name: u.name, email: u.email }))
-            .catch(() => { /* token may be invalid; keep as guest */ });
+            .catch(() => {  });
         }
       }
     } catch (_) {}
