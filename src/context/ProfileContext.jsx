@@ -22,10 +22,21 @@ export function ProfileProvider({ children }) {
 
   // При смене авторизованного пользователя обновляем профиль (имя/почта)
   useEffect(() => {
+    if (!user) {
+      setProfile({
+        name: "Гость",
+        group: "",
+        email: "",
+        avatar: null,
+        theme: "light",
+        language: "ru",
+      });
+      return;
+    }
     setProfile((prev) => ({
       ...prev,
-      name: user?.name || "Гость",
-      email: user?.email || "",
+      name: user.name || prev.name,
+      email: user.email || prev.email,
     }));
   }, [user]);
 
@@ -33,10 +44,12 @@ export function ProfileProvider({ children }) {
   useEffect(() => {
     if (!accessToken) return;
     let cancelled = false;
+    console.log("Fetching profile for token:", accessToken.slice(0, 10) + "...");
     api
       .me()
       .then((u) => {
         if (cancelled) return;
+        console.log("Profile loaded from server:", u);
         const next = {
           name: u.name || "Гость",
           group: u.group || "",
@@ -50,8 +63,8 @@ export function ProfileProvider({ children }) {
           document.documentElement.classList.toggle("dark", next.theme === "dark");
         } catch (_) {}
       })
-      .catch(() => {
-        // игнорируем — останемся на локальном состоянии
+      .catch((err) => {
+        console.error("Failed to fetch profile:", err);
       });
     return () => {
       cancelled = true;
@@ -60,6 +73,7 @@ export function ProfileProvider({ children }) {
 
   const saveProfile = async (newProfile) => {
     setError(null);
+    console.log("Saving profile:", { ...newProfile, avatar: newProfile.avatar ? "data:image/..." : null });
     // Сначала обновим локально для отзывчивости UI
     setProfile(newProfile);
     try {
@@ -77,6 +91,7 @@ export function ProfileProvider({ children }) {
         language: newProfile.language,
       };
       const updated = await api.updateMe(payload);
+      console.log("Profile saved successfully, server returned:", { ...updated, avatar_url: updated.avatar_url ? "data:image/..." : null });
       const normalized = {
         name: updated.name,
         email: updated.email,
