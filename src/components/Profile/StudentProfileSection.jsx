@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function StudentProfileSection() {
-  const { profile, saveProfile, error, setError } = useProfile();
+  const { profile, saveProfile} = useProfile();
   const { logout } = useAuth?.() || { logout: () => {} };
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState(profile);
@@ -48,14 +48,6 @@ export default function StudentProfileSection() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">👤 Профиль студента</h2>
-      
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4 flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-800 font-bold">✕</button>
-        </div>
-      )}
-
       <div className="bg-white text-gray-900 p-6 rounded-xl shadow space-y-6 border border-gray-100">
         <ProfileAvatar
           avatar={formData.avatar}
