@@ -2,6 +2,13 @@ export default function ProfileAvatar({ avatar, setAvatar, editing }) {
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Ограничение размера файла (например, 2МБ)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Файл слишком большой. Максимальный размер — 2МБ.");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => setAvatar(reader.result);
     reader.readAsDataURL(file);
