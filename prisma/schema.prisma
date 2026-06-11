@@ -12,7 +12,7 @@ model User {
   email        String    @unique
   passwordHash String
   name         String
-  avatarUrl    String?
+  avatar_url   String?
   createdAt    DateTime  @default(now())
   tasks        Task[]
   lessons      Lesson[]
