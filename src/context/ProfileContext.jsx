@@ -18,6 +18,7 @@ export function ProfileProvider({ children }) {
     theme: "light",
     language: "ru",
   }));
+  const [error, setError] = useState(null);
 
   // При смене авторизованного пользователя обновляем профиль (имя/почта)
   useEffect(() => {
@@ -58,6 +59,7 @@ export function ProfileProvider({ children }) {
   }, [accessToken]);
 
   const saveProfile = async (newProfile) => {
+    setError(null);
     // Сначала обновим локально для отзывчивости UI
     setProfile(newProfile);
     try {
@@ -87,13 +89,14 @@ export function ProfileProvider({ children }) {
       try {
         document.documentElement.classList.toggle("dark", normalized.theme === "dark");
       } catch (_) {}
-    } catch (_e) {
-      // При ошибке оставляем локальные изменения, можно дополнительно логировать
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+      setError(e.message || "Ошибка при сохранении профиля");
     }
   };
 
   return (
-    <ProfileContext.Provider value={{ profile, saveProfile }}>
+    <ProfileContext.Provider value={{ profile, saveProfile, error, setError }}>
       {children}
     </ProfileContext.Provider>
   );
