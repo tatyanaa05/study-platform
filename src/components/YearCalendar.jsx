@@ -4,9 +4,14 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { LuCalendarArrowDown, LuCalendarArrowUp } from "react-icons/lu";
 
 
-export default function Calendar({ selectedDate, setSelectedDate }) {
+export default function Calendar({ selectedDate, setSelectedDate, tasks = [] }) {
   const [currentDate, setCurrentDate] = useState(selectedDate);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const hasTasks = (day) => {
+    const formatted = day.format("YYYY-MM-DD");
+    return tasks.some(t => t.deadline === formatted);
+  };
 
   const startOfWeek = currentDate.startOf("week").add(1, "day"); // Пн
   const weekDays = Array.from({ length: 7 }, (_, i) =>
@@ -88,7 +93,7 @@ export default function Calendar({ selectedDate, setSelectedDate }) {
                 setCurrentDate(day);
                 if (isExpanded) setIsExpanded(false);
               }}
-              className="py-1 focus:outline-none"
+              className="py-1 focus:outline-none relative"
             >
               <div
                 className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full 
@@ -103,6 +108,9 @@ export default function Calendar({ selectedDate, setSelectedDate }) {
               >
                 {day.format("D")}
               </div>
+              {hasTasks(day) && (
+                <div className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`}></div>
+              )}
             </button>
           );
         })}
