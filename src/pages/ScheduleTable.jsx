@@ -33,11 +33,30 @@ function addDays(date, days) {
 }
 
 function formatISO(date) {
-  // YYYY-MM-DD
+  // YYYY-MM-DD в локальном времени
+  if (!date || isNaN(date.getTime())) date = new Date();
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
-  const da = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${da}`;
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatTime(date) {
+  // HH:mm в локальном времени
+  if (!date || isNaN(date.getTime())) return "10:00";
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function combineDateAndTime(dateStr, timeStr) {
+  // dateStr: YYYY-MM-DD, timeStr: HH:mm
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  const res = new Date();
+  res.setFullYear(y, m - 1, d);
+  res.setHours(hh, mm, 0, 0);
+  return res.toISOString();
 }
 
 function timeLabel(h) {
@@ -220,26 +239,25 @@ export default function ScheduleTable() {
       setWarning("Чтобы добавлять занятия, войдите в систему.");
       return;
     }
-    const dateStr = formatISO(dayDate);
+    const start = new Date(dayDate);
     const startHour = Math.max(HOURS_START, hour);
-    const start = `${dateStr}T${String(startHour).padStart(2, "0")}:00`;
-    // Завершаем занятие через час, но не за пределами суток
-    let end;
+    start.setHours(startHour, 0, 0, 0);
+
+    const end = new Date(start);
     if (startHour >= HOURS_END - 1) {
-      // если начало в 23:00 — окончание 23:59
-      end = `${dateStr}T${String(HOURS_END - 1).padStart(2, "0")}:59`;
+      end.setHours(HOURS_END - 1, 59, 0, 0);
     } else {
-      const endHour = startHour + 1;
-      end = `${dateStr}T${String(endHour).padStart(2, "0")}:00`;
+      end.setHours(startHour + 1, 0, 0, 0);
     }
+
     setEditing({
       id: null,
       subject: "",
       title: "",
       description: "",
       color: "#4F8CFF",
-      start_time: start,
-      end_time: end,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
     });
     setShowForm(true);
   }
@@ -550,13 +568,13 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="date"
               className="w-full border rounded px-2 py-1"
-              value={form.start_time.includes("T") ? form.start_time.split("T")[0] : formatISO(new Date())}
+              value={formatISO(new Date(form.start_time))}
               onChange={(e) => {
-                const d = e.target.value;
-                const startTimePart = form.start_time.includes("T") ? form.start_time.split("T")[1] : "10:00:00";
-                const endTimePart = form.end_time.includes("T") ? form.end_time.split("T")[1] : "11:00:00";
-                setField("start_time", `${d}T${startTimePart}`);
-                setField("end_time", `${d}T${endTimePart}`);
+                const d = e.target.value; // YYYY-MM-DD
+                const startTime = formatTime(new Date(form.start_time));
+                const endTime = formatTime(new Date(form.end_time));
+                setField("start_time", combineDateAndTime(d, startTime));
+                setField("end_time", combineDateAndTime(d, endTime));
               }}
               required
             />
@@ -570,10 +588,10 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="time"
               className="w-full border rounded px-2 py-1"
-              value={form.start_time.includes("T") ? form.start_time.split("T")[1].slice(0, 5) : "10:00"}
+              value={formatTime(new Date(form.start_time))}
               onChange={(e) => {
-                const datePart = form.start_time.includes("T") ? form.start_time.split("T")[0] : formatISO(new Date());
-                setField("start_time", `${datePart}T${e.target.value}:00`);
+                const datePart = formatISO(new Date(form.start_time));
+                setField("start_time", combineDateAndTime(datePart, e.target.value));
               }}
               required
               min={`${String(HOURS_START).padStart(2, "0")}:00`}
@@ -585,10 +603,10 @@ function LessonForm({ data, onClose, onSave, onDelete, warning }) {
             <input
               type="time"
               className="w-full border rounded px-2 py-1"
-              value={form.end_time.includes("T") ? form.end_time.split("T")[1].slice(0, 5) : "11:00"}
+              value={formatTime(new Date(form.end_time))}
               onChange={(e) => {
-                const datePart = form.end_time.includes("T") ? form.end_time.split("T")[0] : formatISO(new Date());
-                setField("end_time", `${datePart}T${e.target.value}:00`);
+                const datePart = formatISO(new Date(form.end_time));
+                setField("end_time", combineDateAndTime(datePart, e.target.value));
               }}
               required
               min={`${String(HOURS_START).padStart(2, "0")}:00`}
