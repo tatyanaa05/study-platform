@@ -7,6 +7,7 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
     type: "article",
     link: "",
     subject: "",
+    tags: "",
     file: null,
     fileName: "",
     fileExt: undefined,
@@ -21,6 +22,7 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
         // При редактировании подставляем ссылку из url (API) или legacy link
         link: initialData.link || initialData.url || "",
         subject: initialData.subject || "",
+        tags: Array.isArray(initialData.tags) ? initialData.tags.join(", ") : initialData.tags || "",
         file: null,
         fileName: initialData.fileName || initialData.title || "",
         fileExt: initialData.fileExt,
@@ -52,8 +54,12 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const tagsArray = form.tags
+      ? form.tags.split(",").map((t) => t.trim()).filter((t) => t !== "")
+      : [];
     const item = {
       ...form,
+      tags: tagsArray,
       link: form.link,
       // Нормализуем поле для UI и API
       url: form.link || undefined,
@@ -65,6 +71,7 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
       type: "article",
       link: "",
       subject: "",
+      tags: "",
       file: null,
       fileName: "",
       fileExt: undefined,
@@ -97,6 +104,14 @@ export default function MaterialsForm({ onSave, initialData, onClose }) {
           value={form.title}
           onChange={handleChange}
           required
+          className="p-2 border rounded"
+        />
+        <input
+          type="text"
+          name="tags"
+          placeholder="Теги (через запятую)"
+          value={form.tags}
+          onChange={handleChange}
           className="p-2 border rounded"
         />
 
