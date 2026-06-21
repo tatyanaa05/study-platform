@@ -10,13 +10,18 @@ export default function MaterialsSection() {
   const { accessToken } = useAuth?.() || {};
 
   const [activeTab, setActiveTab] = useState("all");
+  const [searchTag, setSearchTag] = useState(null);
   const [editing, setEditing] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  const filtered =
+  let filtered =
     activeTab === "all"
       ? materials
       : materials.filter((m) => m.type === activeTab);
+
+  if (searchTag) {
+    filtered = filtered.filter((m) => m.tags && m.tags.includes(searchTag));
+  }
 
 
   useEffect(() => {
@@ -105,11 +110,27 @@ export default function MaterialsSection() {
 
       <MaterialsFilter activeTab={activeTab} setActiveTab={setActiveTab} />
 
+      {searchTag && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="text-sm text-gray-600">Фильтр по тегу:</span>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold flex items-center gap-1">
+            #{searchTag}
+            <button
+              onClick={() => setSearchTag(null)}
+              className="hover:text-blue-900 font-bold"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto pr-0 md:pr-2 mt-4 min-h-0">
         <MaterialsList
           materials={filtered}
           onEdit={openModalForEdit}
           onDelete={handleDelete}
+          onTagClick={setSearchTag}
         />
       </div>
 
