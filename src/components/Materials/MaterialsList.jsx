@@ -1,6 +1,6 @@
 import MaterialRow from "./MaterialRow.jsx";
 
-export default function MaterialsList({ materials, onEdit, onDelete }) {
+export default function MaterialsList({ materials, onEdit, onDelete , onTagClick}) {
   // Группировка по предмету
   const groups = materials.reduce((acc, m) => {
     const key = m.subject || "Без предмета";
@@ -22,6 +22,7 @@ export default function MaterialsList({ materials, onEdit, onDelete }) {
                 item={item}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onTagClick={onTagClick}
               />
             ))}
           </div>
