@@ -28,32 +28,38 @@ export default function MaterialsSection() {
   }, [accessToken]);
 
   const handleSave = (item) => {
+    const body = {
+      title: item.title,
+      type: item.type,
+      subject: item.subject || undefined,
+      url: item.url || undefined,
+      description: item.description || undefined,
+      tags: item.tags || [],
+    };
+
     if (editing) {
       setMaterials((prev) =>
         prev.map((m) => (m.id === editing.id ? { ...item, id: editing.id } : m))
       );
+      if (accessToken) {
+        api.updateMaterial(editing.id, body)
+          .then(() => api.listMaterials())
+          .then((list) => setMaterials(list))
+          .catch(() => {});
+      }
       setEditing(null);
     } else {
       const newItem = { ...item, id: Date.now() };
       setMaterials((prev) => [newItem, ...prev]);
+      if (accessToken) {
+        api
+          .createMaterial(body)
+          .then(() => api.listMaterials())
+          .then((list) => setMaterials(list))
+          .catch(() => {});
+      }
     }
     setShowModal(false);
-
-    if (accessToken) {
-      const body = {
-        title: item.title,
-        type: item.type,
-        subject: item.subject || undefined,
-        url: item.url || undefined,
-        description: item.description || undefined,
-        tags: item.tags || undefined,
-      };
-      api
-        .createMaterial(body)
-        .then(() => api.listMaterials())
-        .then((list) => setMaterials(list))
-        .catch(() => {});
-    }
   };
 
   const handleDelete = async (id) => {
