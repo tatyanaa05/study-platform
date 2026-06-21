@@ -63,6 +63,34 @@ r.post('/', async (req, res, next) => {
   }
 });
 
+const updateSchema = createSchema.partial();
+
+r.patch('/:id', async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const id = req.params.id;
+    const data = updateSchema.parse(req.body);
+
+    const updated = await prisma.material.updateMany({
+      where: { id, userId },
+      data: {
+        ...data,
+      },
+    });
+
+    if (updated.count === 0) {
+      return res.status(404).json({ error: { code: 'MATERIAL_NOT_FOUND', message: 'Material not found' } });
+    }
+
+    const item = await prisma.material.findUnique({ where: { id } });
+    res.json(item);
+  } catch (e) {
+    if (e.name === 'ZodError')
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: e.errors } });
+    next(e);
+  }
+});
+
 r.delete('/:id', async (req, res, next) => {
   try {
     const userId = req.user.id;
