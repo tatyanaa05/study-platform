@@ -37,7 +37,7 @@ function iconByExt(ext, type) {
   }
 }
 
-export default function MaterialRow({ item, onEdit, onDelete }) {
+export default function MaterialRow({ item, onEdit, onDelete, onTagClick }) {
   const sourceForExt = (item.url || item.link || item.title || "").toString();
   const match = sourceForExt.match(/\.([a-zA-Z0-9]+)(?:$|[?#])/);
   const ext = item.fileExt || (match ? match[1].toLowerCase() : undefined);
@@ -53,12 +53,13 @@ export default function MaterialRow({ item, onEdit, onDelete }) {
           {item.tags && item.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {item.tags.map((tag, i) => (
-                <span
+                <button
                   key={i}
-                  className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded uppercase tracking-wider font-semibold"
+                  onClick={() => onTagClick?.(tag)}
+                  className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded uppercase tracking-wider font-semibold hover:bg-gray-200 transition-colors"
                 >
                   #{tag}
-                </span>
+                </button>
               ))}
             </div>
           )}
