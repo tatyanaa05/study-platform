@@ -50,6 +50,18 @@ export default function MaterialRow({ item, onEdit, onDelete }) {
         <div className="min-w-0">
           <div className="font-medium truncate">{item.title}</div>
           <div className="text-xs text-gray-500 truncate">{item.description}</div>
+          {item.tags && item.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {item.tags.map((tag, i) => (
+                <span
+                  key={i}
+                  className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded uppercase tracking-wider font-semibold"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">
