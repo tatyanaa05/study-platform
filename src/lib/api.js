@@ -81,7 +81,7 @@ export const api = {
   listMaterials: () => request('/materials'),
   createMaterial: (body) => request('/materials', { method: 'POST', body: JSON.stringify(body) }),
   deleteMaterial: (id) => request(`/materials/${id}`, { method: 'DELETE' }),
-
+  updateMaterial: (id, body) => request(`/materials/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   // statistics
   stats: (query) => request(`/statistics?${new URLSearchParams(query)}`),
   setUnauthorizedHandler,
